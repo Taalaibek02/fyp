@@ -1,0 +1,3 @@
+model_1: chair, tv, tv, laptop
+model_2: 
+model_3: basketball

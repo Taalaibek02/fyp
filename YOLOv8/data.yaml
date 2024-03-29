@@ -1,0 +1,13 @@
+train: ../dataset/train/images
+val: ../dataset/valid/images
+test: ../dataset/test/images
+
+nc: 17
+names: ['Accordion', 'Clarinet', 'Daf', 'Flute', 'Guitar', 'Kamanche', 'Piano', 'Santur', 'Setar', 'Tombak', 'Tuba', 'Violin','basketball', 'pingpong-ball', 'racket', 'shuttlecock', 'tennis-ball']
+
+roboflow:
+  workspace: fyp-3hevx
+  project: musical-instrument-ynq6t
+  version: 1
+  license: Private
+  url: https://app.roboflow.com/fyp-3hevx/musical-instrument-ynq6t/1
