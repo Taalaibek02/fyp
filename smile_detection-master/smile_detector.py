@@ -9,11 +9,11 @@ event_results = {}
 event_name = "event_identifier"  # Replace with the actual identifier for the event
 
 # Load the cascades
-faceCascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
-smileCascade = cv2.CascadeClassifier('haarcascade_smile.xml')
+faceCascade = cv2.CascadeClassifier('smile_detection-master/haarcascade_frontalface_default.xml')
+smileCascade = cv2.CascadeClassifier('smile_detection-master/haarcascade_smile.xml')
 
 # Load an image from file
-image_path = 'R3.jpeg'  # Replace with your image path
+image_path = 'smile_detection-master/R3.jpeg'  # Replace with your image path
 img = cv2.imread(image_path)
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
