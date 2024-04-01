@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 photo_path = os.path.join('..','dataset','bicycle', 'guitar.jpeg')
-im2 = cv2.imread('C:/Users/tulukbeku2/fyp/dataset/bicycle/guitar.jpeg')
+im2 = cv2.imread('smile_detection-master/R3.jpeg')
 
 model_paths = [
     os.path.join('.','YOLOv8','runs','detect','train16','weights','best.pt'),
@@ -48,5 +48,3 @@ with open(output_path, 'w') as file:
 print(f"Detected tags saved to {output_path}")
 print(results)
 print(results.items())
-
-# result = model(source=im2, save=True, save_txt=True, conf=0.6)

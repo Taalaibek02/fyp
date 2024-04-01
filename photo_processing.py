@@ -11,6 +11,7 @@ image_path = 'smile_detection-master/R3.jpeg'  # Replace with your image path
 
 # Initialize a dictionary to hold the results
 event_results = {}
+results = {}
 
 # Load the cascades for smile detection
 faceCascade = cv2.CascadeClassifier('smile_detection-master/haarcascade_frontalface_default.xml')
@@ -58,15 +59,21 @@ model_paths = [
 models = [YOLO(path) for path in model_paths]
 
 detected_objects = []
+all_detected_tags = set()
 
 # Run object detection for each model
-for model in models:
-    result = model(img, size=640)
+for i, model in enumerate(models):
+    result = model(source=img, conf=0.6, imgsz=640, save=True)
+    all_class_ids = []
     for r in result:
-        detected_objects.extend(r.boxes.cls.tolist())  # Extract class IDs
 
-# Convert class IDs to names
-object_tags = [model.names[int(cls_id)] for cls_id in set(detected_objects)]
+        all_class_ids.extend(r.boxes.cls.tolist())
+
+
+
+    detected_tags = [model.names[int(cls_id)] for cls_id in all_class_ids]
+    all_detected_tags.update(detected_tags)
+    results[f'model_{i+1}'] = detected_tags
 
 # Store the combined results in the dictionary
 event_results[event_name] = {
@@ -74,7 +81,7 @@ event_results[event_name] = {
     'total_faces': total_faces,
     'smiling_faces': smiling_faces,
     'smile_ratio': smile_ratio,
-    'detected_objects': object_tags
+    'detected_objects': list(all_detected_tags)
 }
 
 # Save the combined results to a JSON file
@@ -82,9 +89,9 @@ with open('event_results.json', 'w') as fp:
     json.dump(event_results, fp, indent=4)
 
 # Show the output image with smile detection
-cv2.imshow('Smile Detection', img)
-cv2.waitKey(0)  # Wait indefinitely until a key is pressed
-cv2.destroyAllWindows()
+# cv2.imshow('Smile Detection', img)
+# cv2.waitKey(0)  # Wait indefinitely until a key is pressed
+# cv2.destroyAllWindows()
 
 # Output the combined results
 print(event_results)

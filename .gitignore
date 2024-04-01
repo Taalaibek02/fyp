@@ -2,3 +2,4 @@ dataset/
 YOLOv8/dataset/
 YOLOv8/datasets/
 .DS_Store
+runs/

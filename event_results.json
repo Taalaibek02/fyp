@@ -1,0 +1,12 @@
+{
+    "event_identifier": {
+        "image_path": "smile_detection-master/R3.jpeg",
+        "total_faces": 2,
+        "smiling_faces": 1,
+        "smile_ratio": 0.5,
+        "detected_objects": [
+            "bicycle",
+            "person"
+        ]
+    }
+}
