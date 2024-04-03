@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Events Listing</title>
+    <!-- Add any additional head elements here (e.g., CSS files, meta tags) -->
+</head>
+<body>
+    <h1>Events Listing</h1>
+    <ul>
+        {% for event in events %}
+        <li>
+            <h2>{{ event.name }}</h2>
+            <p>Event ID: {{ event.id }}</p>
+            <p>Tags: {{ event.tags }}</p>
+            <p>Rating: {{ event.rating }}</p>
+            <!-- Add a button to upload a photo for this event -->
+            <form action="{{ url_for('upload_form', event_id=event.id) }}" method="get">
+                <button type="submit">Upload Photo</button>
+            </form>
+        </li>
+        {% else %}
+        <li>No events found.</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

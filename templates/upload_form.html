@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Photo for Event</title>
+</head>
+<body>
+
+<h2>Upload Photo for Event</h2>
+<form action="{{ url_for('upload_photo', event_id=event_id) }}" method="post" enctype="multipart/form-data">
+    <input type="file" name="photo">
+    <input type="submit" value="Upload">
+</form>
+
+</body>
+</html>
