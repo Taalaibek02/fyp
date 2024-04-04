@@ -1,0 +1,22 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Search Events</title>
+</head>
+<body>
+    <h1>Search Events</h1>
+    <form action="{{ url_for('search_events') }}" method="get">
+        <input type="text" name="query" placeholder="Search events..." required>
+        <button type="submit">Search</button>
+    </form>
+    {% if events %}
+        <h2>Search Results:</h2>
+        <ul>
+            {% for event in events %}
+                <li>{{ event.name }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</body>
+</html>

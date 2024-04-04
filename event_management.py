@@ -1,12 +1,13 @@
 from flask import Flask, request, jsonify, flash, redirect, url_for, render_template
 from flask_uploads import UploadSet, configure_uploads, IMAGES
 from flask_sqlalchemy import SQLAlchemy
-# from werkzeug.utils import secure_filename
-from werkzeug.security import generate_password_hash
+from werkzeug.utils import secure_filename
+# from werkzeug.security import generate_password_hash
 import os
 import json
 import cv2
 from ultralytics import YOLO
+from elasticsearch import Elasticsearch
 
 app = Flask(__name__)
 
@@ -20,6 +21,7 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 # Configure the database via Flask-SQLAlchemy
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///events.db'
 db = SQLAlchemy(app)
+es = Elasticsearch("http://localhost:9200")
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -58,6 +60,21 @@ class Event(db.Model):
         print("smile RATIO", total_smile_ratio)
         return float(total_smile_ratio / count) if count > 0 else None
 
+    def index(self):
+        # Index the event in Elasticsearch
+        body = {
+            'name': self.name,
+            'tags': self.tags,
+            'rating': self.rating
+        }
+        es.index(index="events", id=self.id, document=body)
+
+    @staticmethod
+    def reindex_all():
+        # Helper method to reindex all events
+        for event in Event.query:
+            event.index()
+
     
 class Photo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -77,6 +94,7 @@ def create_event():
         event = Event(name=event_name)
         db.session.add(event)
         db.session.commit()
+        event.index() #index the event in ElasticSearch
         return jsonify({'message': 'Event created successfully'}), 201
     else:
         return jsonify({'message': 'Event name is required'}), 400
@@ -104,6 +122,28 @@ def get_events():
     events = Event.query.all()
     # Render the HTML template with the events data
     return render_template('listing.html', events=events)
+    
+@app.route('/search', methods=['GET'])
+def search_events():
+    query = request.args.get('query')
+    if query:
+        # Perform the search using Elasticsearch
+        search_body = {
+            'query': {
+                'multi_match': {
+                    'query': query,
+                    'fields': ['name', 'tags']
+                }
+            }
+        }
+        response = es.search(index="events", body=search_body)
+        event_ids = [hit['_id'] for hit in response['hits']['hits']]
+        # Fetch the matching events from the database in the order Elasticsearch returned them
+        events = Event.query.filter(Event.id.in_(event_ids)).order_by(db.case({id: index for index, id in enumerate(event_ids)}, value=Event.id))
+    else:
+        events = []
+
+    return render_template('search.html', events=events)
 
 
 @app.route('/upload_photo/<int:event_id>', methods=['POST'])
@@ -116,7 +156,13 @@ def upload_photo(event_id):
         photo = Photo(filename=filename, event_id=event_id, tags=json.dumps(tags))
         db.session.add(photo)
         db.session.commit()
-        return jsonify({'message': 'Photo uploaded and analyzed successfully'}), 201
+        event = Event.query.get(event_id)
+        if event:
+            event.index()  # Update the event index in Elasticsearch
+            return jsonify({'message': 'Photo uploaded and analyzed successfully'}), 201
+        else:
+            return jsonify({'message': 'Event not found'}), 404
+        
     else:
         return jsonify({'message': 'No photo uploaded'}), 400
     
