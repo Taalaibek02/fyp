@@ -23,5 +23,10 @@
         <li>No events found.</li>
         {% endfor %}
     </ul>
+    <form action="{{ url_for('create_event') }}" method="post">
+        <label for="name">Event Name:</label>
+        <input type="text" id="name" name="name" required>
+        <input type="submit" value="Create Event">
+    </form>
 </body>
 </html>

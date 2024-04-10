@@ -8,6 +8,7 @@ import json
 import cv2
 from ultralytics import YOLO
 from elasticsearch import Elasticsearch
+from ssl import create_default_context
 
 app = Flask(__name__)
 
@@ -21,11 +22,39 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 # Configure the database via Flask-SQLAlchemy
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///events.db'
 db = SQLAlchemy(app)
-es = Elasticsearch("http://localhost:9200")
+
+certificate_path = "C:\\Users\\tulukbeku2\\fyp\\http_ca.crt"
+
+# Create a default SSL context that uses your self-signed certificate
+context = create_default_context(cafile=certificate_path)
+
+
+es = Elasticsearch(
+    "https://localhost:9200",
+    ssl_context=context,
+    http_auth=('elastic', 'xF6UCYuwgj6b3LIyj5f7')
+    )
+if not es.indices.exists(index="events"):
+    es.indices.create(index="events")
+
+
 
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+
+def index_event(event):
+    if not es.indices.exists(index="events"):
+        es.indices.create(index="events")
+        
+    event_data = {
+        'name': event.name,
+        'tags': event.tags
+    }
+    response = es.index(index='events', id=str(event.id), body=event_data)
+    return response
 
 # Create database models
 class Event(db.Model):
@@ -60,20 +89,20 @@ class Event(db.Model):
         print("smile RATIO", total_smile_ratio)
         return float(total_smile_ratio / count) if count > 0 else None
 
-    def index(self):
-        # Index the event in Elasticsearch
-        body = {
-            'name': self.name,
-            'tags': self.tags,
-            'rating': self.rating
-        }
-        es.index(index="events", id=self.id, document=body)
+    # def index(self):
+    #     # Index the event in Elasticsearch
+    #     body = {
+    #         'name': self.name,
+    #         'tags': self.tags,
+    #         'rating': self.rating
+    #     }
+    #     es.index(index="events", id=self.id, document=body)
 
-    @staticmethod
-    def reindex_all():
-        # Helper method to reindex all events
-        for event in Event.query:
-            event.index()
+    # @staticmethod
+    # def reindex_all():
+    #     # Helper method to reindex all events
+    #     for event in Event.query:
+    #         event.index()
 
     
 class Photo(db.Model):
@@ -85,36 +114,25 @@ class Photo(db.Model):
 # Initialize the database
 with app.app_context():
     db.create_all()
+    events = Event.query.all()
+    for event in events:
+        index_event(event)
 
 # Define the API endpoints
 @app.route('/create_event', methods=['POST'])
 def create_event():
-    event_name = request.json.get('name')
+    event_name = request.form.get('name')
     if event_name:
         event = Event(name=event_name)
         db.session.add(event)
         db.session.commit()
-        event.index() #index the event in ElasticSearch
+        # event.index() #index the event in ElasticSearch
+    
+        index_event(event)
         return jsonify({'message': 'Event created successfully'}), 201
     else:
         return jsonify({'message': 'Event name is required'}), 400
     
-
-# @app.route('/events', methods=['GET'])
-# def get_events():
-#     # Retrieve all events from the database
-#     events = Event.query.all()
-#     # Transform the events into a JSON-serializable format
-#     events_data = [
-#         {
-#             'id': event.id,
-#             'name': event.name,
-#             'tags': event.tags,  # Include the tags from the property decorator
-#             'rating': event.rating
-#         } for event in events
-#     ]
-#     # Return the list of events as a JSON response
-#     return jsonify(events_data)
     
 @app.route('/events', methods=['GET'])
 def get_events():
@@ -123,27 +141,36 @@ def get_events():
     # Render the HTML template with the events data
     return render_template('listing.html', events=events)
     
-@app.route('/search', methods=['GET'])
+
+@app.route('/search_events', methods=['GET'])
 def search_events():
-    query = request.args.get('query')
+    query = request.args.get('query', '')
     if query:
-        # Perform the search using Elasticsearch
-        search_body = {
-            'query': {
+        # Perform a search query in Elasticsearch across the 'name' and 'tags' fields
+        try:
+            # Elasticsearch operation here
+            response = es.search(
+            index='events',
+            query={
                 'multi_match': {
                     'query': query,
                     'fields': ['name', 'tags']
                 }
             }
-        }
-        response = es.search(index="events", body=search_body)
+        )
+        except elasticsearch.NotFoundError as e:
+            print(f"Resource not found: {e.info}")
+        except elasticsearch.ElasticsearchException as e:
+            print(f"An Elasticsearch error occurred: {e}")
+        
+        # Extract event IDs from the Elasticsearch response
         event_ids = [hit['_id'] for hit in response['hits']['hits']]
-        # Fetch the matching events from the database in the order Elasticsearch returned them
-        events = Event.query.filter(Event.id.in_(event_ids)).order_by(db.case({id: index for index, id in enumerate(event_ids)}, value=Event.id))
+        # Retrieve those events from the SQL database
+        events = Event.query.filter(Event.id.in_(event_ids)).all()
+        # Render the HTML template with the search results
+        return render_template('listing.html', events=events)
     else:
-        events = []
-
-    return render_template('search.html', events=events)
+        return jsonify({'message': 'Search query is required'}), 400
 
 
 @app.route('/upload_photo/<int:event_id>', methods=['POST'])
@@ -158,7 +185,8 @@ def upload_photo(event_id):
         db.session.commit()
         event = Event.query.get(event_id)
         if event:
-            event.index()  # Update the event index in Elasticsearch
+            # event.index()  # Update the event index in Elasticsearch
+            index_event(event)
             return jsonify({'message': 'Photo uploaded and analyzed successfully'}), 201
         else:
             return jsonify({'message': 'Event not found'}), 404
@@ -170,12 +198,11 @@ def upload_photo(event_id):
 # The existing code for smile and object detection can be refactored into a function
 def detect_tags(image_path):
     # All the previously shown code for smile and object detection goes here
-    event_name = "event_identifier"  # Replace with the actual identifier for the event
+    event_name = "event_identifier" 
 
     # Define the path to your image
-    # image_path = 'smile_detection-master/R3.jpeg'  # Replace with your image path
 
-    # Initialize a dictionary to hold the results
+   # Initialize a dictionary to hold the results
     event_results = {}
     results = {}
 
@@ -226,20 +253,31 @@ def detect_tags(image_path):
 
     detected_objects = []
     all_detected_tags = set()
+    person_count = 0
 
     # Run object detection for each model
     for i, model in enumerate(models):
-        result = model(source=img, conf=0.6, imgsz=640, save=True)
+        if model_paths[i] == 'YOLOv8/runs/detect/train14/weights/best.pt':
+            confidence = 0.80
+        else:
+            confidence = 0.6
+
+        result = model(source=img, conf=confidence, imgsz=640, save=True)
         all_class_ids = []
         for r in result:
 
             all_class_ids.extend(r.boxes.cls.tolist())
+            if model_paths[i] == 'YOLOv8/runs/detect/train16/weights/best.pt':
+                person_count = all_class_ids.count(0.0)
 
 
 
         detected_tags = [model.names[int(cls_id)] for cls_id in all_class_ids]
         all_detected_tags.update(detected_tags)
         results[f'model_{i+1}'] = detected_tags
+
+    person_tag = 'group' if person_count > 2 else 'solo'
+    all_detected_tags.add(person_tag)
 
     # Store the combined results in the dictionary
     event_results[event_name] = {
@@ -252,10 +290,6 @@ def detect_tags(image_path):
 
     # Instead of printing or saving to a file, return the results dictionary
     return event_results
-
-# @app.route('/upload_form')
-# def upload_form():
-#     return render_template('upload_form.html')
 
 @app.route('/upload_form/<int:event_id>', methods=['GET'])
 def upload_form(event_id):
