@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, flash, redirect, url_for, render_temp
 from flask_uploads import UploadSet, configure_uploads, IMAGES
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.utils import secure_filename
-# from werkzeug.security import generate_password_hash
+from sqlalchemy.orm.exc import NoResultFound
 import os
 import json
 import cv2
@@ -81,28 +81,11 @@ class Event(db.Model):
             photo_tags = json.loads(photo.tags)  # Assuming photo.tags is a JSON string of tags.
             # Check if 'smiling_ratio' is in the tags and is a number.
             for smiles_list in photo_tags.values():
-                print("SMILES:   ", smiles_list)
                 if 'smile_ratio' in smiles_list and isinstance(smiles_list['smile_ratio'], (int, float)):
                     total_smile_ratio += smiles_list['smile_ratio']
                     count += 1
         # Calculate the average if at least one photo has a smiling ratio; otherwise, return None.
-        print("smile RATIO", total_smile_ratio)
         return float(total_smile_ratio / count) if count > 0 else None
-
-    # def index(self):
-    #     # Index the event in Elasticsearch
-    #     body = {
-    #         'name': self.name,
-    #         'tags': self.tags,
-    #         'rating': self.rating
-    #     }
-    #     es.index(index="events", id=self.id, document=body)
-
-    # @staticmethod
-    # def reindex_all():
-    #     # Helper method to reindex all events
-    #     for event in Event.query:
-    #         event.index()
 
     
 class Photo(db.Model):
@@ -133,7 +116,7 @@ def create_event():
     else:
         return jsonify({'message': 'Event name is required'}), 400
     
-    
+
 @app.route('/events', methods=['GET'])
 def get_events():
     # Retrieve all events from the database
@@ -168,7 +151,13 @@ def search_events():
         # Retrieve those events from the SQL database
         events = Event.query.filter(Event.id.in_(event_ids)).all()
         # Render the HTML template with the search results
-        return render_template('listing.html', events=events)
+        events_data = [{
+            'id': event.id,
+            'name': event.name,
+            'tags': event.tags,
+            'rating': event.rating
+        } for event in events]
+        return jsonify(events_data)
     else:
         return jsonify({'message': 'Search query is required'}), 400
 
@@ -231,14 +220,14 @@ def detect_tags(image_path):
         roi_gray = gray[y:y + h, x:x + w]
         smile = smileCascade.detectMultiScale(
             roi_gray,
-            scaleFactor=1.7,
-            minNeighbors=20,
-            minSize=(25, 25),
+            scaleFactor=1.4,
+            minNeighbors=10,
+            minSize=(15, 15),
         )
         if len(smile) > 1:
             smiling_faces += 1
-
     # Calculate the smile ratio
+    print(smiling_faces)
     smile_ratio = smiling_faces / total_faces if total_faces > 0 else 0
 
     # Object detection
@@ -258,7 +247,7 @@ def detect_tags(image_path):
     # Run object detection for each model
     for i, model in enumerate(models):
         if model_paths[i] == 'YOLOv8/runs/detect/train14/weights/best.pt':
-            confidence = 0.80
+            confidence = 0.9
         else:
             confidence = 0.6
 
