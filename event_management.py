@@ -109,8 +109,6 @@ def create_event():
         event = Event(name=event_name)
         db.session.add(event)
         db.session.commit()
-        # event.index() #index the event in ElasticSearch
-    
         index_event(event)
         return jsonify({'message': 'Event created successfully'}), 201
     else:
@@ -174,7 +172,6 @@ def upload_photo(event_id):
         db.session.commit()
         event = Event.query.get(event_id)
         if event:
-            # event.index()  # Update the event index in Elasticsearch
             index_event(event)
             return jsonify({'message': 'Photo uploaded and analyzed successfully'}), 201
         else:
@@ -184,12 +181,8 @@ def upload_photo(event_id):
         return jsonify({'message': 'No photo uploaded'}), 400
     
 
-# The existing code for smile and object detection can be refactored into a function
 def detect_tags(image_path):
-    # All the previously shown code for smile and object detection goes here
     event_name = "event_identifier" 
-
-    # Define the path to your image
 
    # Initialize a dictionary to hold the results
     event_results = {}
@@ -276,7 +269,6 @@ def detect_tags(image_path):
         'detected_objects': list(all_detected_tags)
     }
 
-    # Instead of printing or saving to a file, return the results dictionary
     return event_results
 
 @app.route('/upload_form/<int:event_id>', methods=['GET'])

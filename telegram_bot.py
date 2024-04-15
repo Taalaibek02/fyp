@@ -13,7 +13,6 @@ PHOTO = range(1)  # Define conversation state
 
 enrolled_event_ids = []
 
-# Your existing Flask app setup here...
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///events.db'
 db = SQLAlchemy(app)
@@ -118,7 +117,7 @@ def create_event(update, context):
             event = Event(name=event_name)
             db.session.add(event)
             db.session.commit()
-            index_event(event)  # Make sure index_event() doesn't require an app context
+            index_event(event)
         update.message.reply_text('Event created successfully')
     else:
         update.message.reply_text('Event name is required')
@@ -163,13 +162,9 @@ def button(update: Update, context: CallbackContext):
                     reply_markup=reply_markup
                 )
     elif data.startswith('enroll_'):
-        # Call the enroll function here
         enroll(query, context)
     elif data.startswith('cancel_enrollment_'):
-        # Call the cancel_enrollment function here
         cancel_enrollment(query, context)
-    # elif data.startswith('take_photo_'):
-        # Future implementation for taking a photo
 
 # Function to enroll the user in an event
 def enroll(query, context: CallbackContext):
@@ -182,7 +177,7 @@ def enroll(query, context: CallbackContext):
         # After enrollment, show success message with 'Cancel Enrollment' and 'Take Photo' buttons
         reply_markup = InlineKeyboardMarkup([
             [InlineKeyboardButton("Cancel Enrollment", callback_data='cancel_enrollment_{}'.format(event_id))],
-            [InlineKeyboardButton("Take Photo", callback_data='take_photo_{}'.format(event_id))]  # Placeholder for future implementation
+            [InlineKeyboardButton("Take Photo", callback_data='take_photo_{}'.format(event_id))] 
         ])
         query.edit_message_text(text="You have been enrolled.", reply_markup=reply_markup)
     else:
@@ -232,8 +227,6 @@ def photo_upload(update: Update, context: CallbackContext):
     user = update.message.from_user
     photo_file = update.message.photo[-1].get_file()
     event_id = context.user_data.get('event_id')
-    # You can save the photo to your server, process it, and detect tags as per your Flask logic
-    # Then you can update the Event object and save the Photo object to the database
     update.message.reply_text('Photo uploaded and analyzed successfully')
     return ConversationHandler.END
 
@@ -249,7 +242,6 @@ def search(update: Update, context: CallbackContext):
         return
     
     try:
-        # Replace with the actual URL of your Flask app
         response = requests.get(f"http://127.0.0.1:5000/search_events?query={query}")
         
         if response.status_code == 200:
@@ -349,10 +341,6 @@ dispatcher.add_handler(CommandHandler('list_enrolled_events', list_enrolled_even
 # Start the Bot
 updater.start_polling()
 
-# Your existing Flask routes here...
-# ...
-
-# Start your Flask app
+# Start Flask app
 if __name__ == '__main__':
-    # Note: You can still run your Flask app as usual or integrate the bot polling into the Flask app
     app.run()
