@@ -256,10 +256,10 @@ def search(update: Update, context: CallbackContext):
             events = response.json()
             if events:
                 # Sort the events by rating just in case they aren't already sorted
-                events.sort(key=lambda x: x.get('rating', 0), reverse=True)
+                events.sort(key=lambda x: x.get('rating', 0) or 0, reverse=True)
                 
                 keyboard = [
-                    [InlineKeyboardButton(f"{event['name']} (Rating: {event['rating']:0.2f})", callback_data=f'event_details_{event["id"]}')]
+                    [InlineKeyboardButton(f"{event['name']} (Rating: {format_rating(event.get('rating'))})", callback_data=f"event_details_{event['id']}")]
                     for event in events
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
@@ -272,7 +272,14 @@ def search(update: Update, context: CallbackContext):
         update.message.reply_text(str(e))
 
 
-# on different commands - answer in Telegram
+def format_rating(rating):
+    """
+    Format the rating to show two decimal places, converting None to 0.00.
+    """
+    if rating is None:
+        return "0.00"
+    else:
+        return f"{float(rating):0.2f}"
 
 
 conv_handler = ConversationHandler(

@@ -227,7 +227,6 @@ def detect_tags(image_path):
         if len(smile) > 1:
             smiling_faces += 1
     # Calculate the smile ratio
-    print(smiling_faces)
     smile_ratio = smiling_faces / total_faces if total_faces > 0 else 0
 
     # Object detection
